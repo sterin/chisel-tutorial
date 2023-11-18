@@ -1,0 +1,16 @@
+project/
+target/
+test_run_dir/
+.metals/
+.bsp/
+.bloop/
+
+/*.anno.json
+/*.fir
+/*.v
+
+*.pyc
+*.pyo
+__pycache__
+
+out/

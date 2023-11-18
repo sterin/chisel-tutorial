@@ -1,0 +1,9 @@
+{
+    "files.exclude": {
+        ".bloop/": true,
+        ".bsp/": true,
+        ".metals/": true,
+        "project/": true,
+        "target/": true
+    }
+}
