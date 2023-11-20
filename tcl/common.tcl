@@ -14,6 +14,27 @@ proc bs_connect_intf {args} {
     connect_bd_intf_net {*}[bs_map get_bd_intf_pins $args]
 }
 
+proc bs_finalize {} {
+
+  upvar project_name project_name
+  upvar project_location project_location
+  upvar bd_name bd_name
+
+  update_compile_order -fileset sources_1
+
+  regenerate_bd_layout
+  assign_bd_address
+  validate_bd_design
+
+  # make wraper and set top
+
+  make_wrapper -top -files [get_files "${project_location}/${project_name}.srcs/sources_1/bd/${bd_name}/${bd_name}.bd" ]
+  add_files -norecurse ${project_location}/${project_name}.gen/sources_1/bd/${bd_name}/hdl/${bd_name}_wrapper.v
+  set_property top ${bd_name}_wrapper [current_fileset]
+
+  save_bd_design
+}
+
 proc bs_create_clock {hier args} {
   create_bd_cell -type hier ${hier}
 
@@ -137,23 +158,45 @@ proc bs_create_smartconnect {name slaves masters {n_clocks 1}} {
   }
 }
 
-proc bs_finalize {} {
+proc bs_create_system_ila {name depth {axi {}} {axis {}} {probes {}}} {
 
-  upvar project_name project_name
-  upvar project_location project_location
-  upvar bd_name bd_name
+    create_bd_cell -type ip -vlnv xilinx.com:ip:system_ila:1.1 ${name}
 
-  update_compile_order -fileset sources_1
+    set has_interfaces [expr [llength $axi] + [llength $axis] > 0]
+    set has_probes [expr [llength $probes] > 0]
 
-  regenerate_bd_layout
-  assign_bd_address
-  validate_bd_design
+    if { $has_interfaces && $has_probes } {
+        set type MIX
+    } elseif { $has_interfaces && !$has_probes } {
+        set type INTERFACE
+    } elseif { !$has_interfaces && $has_probes } {
+        set type NATIVE
+    } else {
+        error "bs_create_system_ila: no probes or interfaces"
+    }
 
-  # make wraper and set top
+    set_property CONFIG.C_MON_TYPE ${type} [get_bd_cells $name]
+    set_property CONFIG.C_NUM_MONITOR_SLOTS [expr [llength $axi] + [llength $axis]] [get_bd_cells $name]
+    set_property CONFIG.C_NUM_OF_PROBES [llength $probes] [get_bd_cells $name]
+    set_property CONFIG.C_DATA_DEPTH ${depth} [get_bd_cells $name]
 
-  make_wrapper -top -files [get_files "${project_location}/${project_name}.srcs/sources_1/bd/${bd_name}/${bd_name}.bd" ]
-  add_files -norecurse ${project_location}/${project_name}.gen/sources_1/bd/${bd_name}/hdl/${bd_name}_wrapper.v
-  set_property top ${bd_name}_wrapper [current_fileset]
+    set probe_idx 0
+    for { set i 0 } { $i < [llength $axi] } { incr i } {
+        set_property CONFIG.C_SLOT_${probe_idx}_INTF_TYPE {xilinx.com:interface:aximm rtl:1.0} [get_bd_cells $name]
+        bs_connect_intf [lindex $axi $i] [format "%s/SLOT_%d_AXI" $name $i]
 
-  save_bd_design
+        set probe_idx [expr $probe_idx + 1]
+    }
+    
+    for { set i 0 } { $i < [llength $axis] } { incr i } {
+        set_property CONFIG.C_SLOT_${probe_idx}_INTF_TYPE {xilinx.com:interface:axis_rtl:1.0} [get_bd_cells $name]
+        bs_connect_intf [lindex $axis $i] [format "%s/SLOT_%d_AXIS" $name $probe_idx]
+        set probe_idx [expr $probe_idx + 1]
+    }
+
+    for { set i 0 } { $i < [llength $probes] } { incr i } {
+        bs_connect [lindex $probes $i] [format "%s/probe%d" $name $i]
+        set probe_idx [expr $probe_idx + 1]
+    }
 }
+

@@ -3,6 +3,29 @@
 ## Prerequisites
 
 
+## Primitives
+
+### Skid Buffer
+
+
+```mermaid
+stateDiagram
+    
+    state Empty "s_empty \n [s_enq.ready]" as E
+    state Busy "s_busy \n [s_enq.ready && s_deq.valid]" as B
+    state Full "s_full \n [s_deq.valid]" as F
+
+    direction LR
+
+    [*] --> E
+    E --> B : [s_enq.valid] \n out = s_enq.data
+    B --> E : [s_deq.ready] \n s_deq.data = out
+    B --> F : [s_enq.valid] \n buf = s_enq.data
+    F --> B : [s_deq.ready] \n s_deq.data = out \n out = buf
+    B --> B : [s_enq.valid && s_deq.ready] \n out = s_enq.data \n s_deq.data = out
+```
+
+
 
 ## Final Project
 
@@ -14,8 +37,6 @@ Memset block.
 * Command FIFO
 * Interrupt 
 * Write to memory using Xilinx' AXI DataMover
-
-
 
 
 

@@ -17,6 +17,42 @@ class Stream[+T <: Data](gen: T) extends Bundle {
   val data = Output(gen.cloneType)
 }
 
+class AXI4Stream(val WIDTH: Int) extends Bundle {
+  require( WIDTH % 8 == 0 )
+  val tvalid = Output(Bool())
+  val tready = Input(Bool())
+  val tdata = Output(UInt(WIDTH.W))
+}
+
+object AXI4Stream {
+  def Buffer(width: Int, reverse: Boolean = false) = {
+    val m_buffer = Module(new AXI4StreamBufferMod(width))
+    if(reverse) {
+      (m_buffer.m_axis, m_buffer.s_axis)
+    } else {
+      (m_buffer.s_axis, m_buffer.m_axis)
+    }
+  }
+
+  def buf[T<:Data](tvalid: Bool, tready: Bool, tdata: T, reverse: Boolean = false) = {
+    val (axis0, axis1) = Buffer(tdata.getWidth, reverse)
+    axis0.tvalid <> tvalid
+    axis0.tready <> tready
+    if(reverse) {
+      tdata := axis0.tdata.asTypeOf(tdata)
+    } else {
+      axis0.tdata := tdata.asUInt
+    }
+    axis1
+  }
+}
+
+class AXI4StreamBufferMod(width: Int) extends Module with InlineInstance {
+  val s_axis = IO(Flipped(new AXI4Stream(width)))
+  val m_axis = IO(new AXI4Stream(width))
+  s_axis <> m_axis
+}
+
 class Stage[T0 <: Data, T1 <: Data](gen0: T0, gen1: T1) extends Module {
   val s_enq = Stream.Input(gen0)
   val s_deq = Stream.Output(gen1)
@@ -114,6 +150,14 @@ object Stream {
       deq
     }
 
+    def axis() = {
+      AXI4Stream.buf(strm.valid, strm.ready, strm.data)
+    }
+
+    def from_axis() = {
+      AXI4Stream.buf(strm.valid, strm.ready, strm.data, true)
+    }
+
     def transform[R <: Data](f: T => R) = {
       val s0 = strm.buf()
       Stream.buf(s0.valid, s0.ready, f(s0.data))
@@ -160,7 +204,10 @@ object Stream {
       m_iterator.s_deq
     }
 
-    def reduce() = {
+    def reduce[R <: Data](initial: => R)(done: R => Bool)(consume: (R, T)=>R) = {
+      val m_reduce = Module(new StreamReduceMod(chiselTypeOf(strm.data))(initial)(done)(consume))
+      m_reduce.s_enq <> strm
+      m_reduce.s_deq
     }
   }
 
@@ -362,6 +409,31 @@ class StreamFIFO[T <: Data](val addr_width: Int, gen: T) extends Stage(gen, gen)
     s_deq.on_enq(read_data.asTypeOf(gen)) {
       read_addr := tail + 1.U
       tail := read_addr
+    }
+  }
+}
+
+class StreamReduceMod[T<:Data, R<:Data](gen: T)(initial: =>R)(done: R => Bool)(reduce: (R, T) => R) extends Module {
+
+  val init = initial
+
+  val s_enq = Stream.Input( gen.cloneType )
+  val s_deq = Stream.Output( chiselTypeOf(init) )
+
+  val data = Reg(chiselTypeOf(init))
+  val data_valid = RegInit(false.B)
+
+  when( s_enq.valid ) {
+    val r = reduce(Mux(data_valid, data, init), s_enq.data)
+    when( done(r) ) {
+      Stream.buf(s_enq.valid, s_enq.ready, r) <> s_deq
+      s_deq.on_fire { x => {
+        data_valid := false.B
+      }}
+    }.otherwise {
+      s_enq.ready := true.B
+      data := r
+      data_valid := true.B
     }
   }
 }
