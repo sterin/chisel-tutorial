@@ -18,9 +18,8 @@ class Hello2 extends Module {
 
 object Emit {
   def main(args: Array[String]): Unit = {
-    val stage = new chisel3.stage.ChiselStage
-    stage.emitVerilog(new Hello1)
-    stage.emitVerilog(new Hello2)
+    emit.emitVerilog(new Hello1)
+    emit.emitVerilog(new Hello2)
     // stage.emitVerilog(new Hello3)
     // stage.emitVerilog(new Hello4)
     // stage.emitVerilog(new Hello5)

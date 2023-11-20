@@ -15,17 +15,17 @@ val options = Seq(
   "-Wconf:msg=firrtl:s",
 )
 
-val chiselVersion = "3.6.0"
-val chiselTestVersion = "0.6.0"
+val chiselVersion = "5.1.0"
+val chiselTestVersion = "5.0.2"
 
 lazy val root = (project in file("."))
   .settings(
     name := "chisel-tests-1",
     libraryDependencies ++= Seq(
-      "edu.berkeley.cs" %% "chisel3" % chiselVersion,
-      "edu.berkeley.cs" %% "chiseltest" % chiselTestVersion % "test"
+        "org.chipsalliance" %% "chisel" % chiselVersion,
+        "edu.berkeley.cs" %% "chiseltest" % chiselTestVersion % "test"
     ),
 
     scalacOptions ++= options,
-    addCompilerPlugin("edu.berkeley.cs" % "chisel3-plugin" % chiselVersion cross CrossVersion.full)
+      addCompilerPlugin("org.chipsalliance" % "chisel-plugin" % chiselVersion cross CrossVersion.full)
   )

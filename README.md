@@ -5,6 +5,35 @@
 
 ## Primitives
 
+
+```mermaid
+stateDiagram-v2
+    
+    direction LR
+
+    state "[000] \n R" as 000
+    state "[100] \n R" as 100
+    state "[001] \n RV" as 001
+    state "[101] \n RV" as 101
+    state "[111] \n V" as 111
+
+    [*] --> 000
+    000 --> 100 : e
+    001 --> 000 : d
+    001 --> 100 : ed
+    100 --> 001 : !e
+    100 --> 101 : e
+    101 --> 001 : d
+    101 --> 101 : ed
+    101 --> 111 : e
+
+
+
+    111 --> 101 : d
+```
+
+
+
 ### Skid Buffer
 
 

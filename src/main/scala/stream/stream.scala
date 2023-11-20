@@ -186,6 +186,10 @@ object Stream {
       strm.stage(new StreamSkidBuf(strm.data))
     }
 
+    def skid3() = {
+      strm.stage(new StreamSkid3Buf(strm.data))
+    }
+
     def fifo(bits: Int) = {
       if( bits == 0 ) {
         strm
@@ -336,6 +340,71 @@ class StreamSkidBuf[T<:Data](gen: T) extends Stage(gen, gen) {
       when( s_deq.ready ) {
         out := buf
         state := s_busy
+      }
+    }
+  }
+}
+
+// http://fpgacpu.ca/fpga/Pipeline_Skid_Buffer.html
+// https://zipcpu.com/blog/2019/05/22/skidbuffer.html
+class StreamSkid3Buf[T<:Data](gen: T) extends Stage(gen, gen) {
+  
+  val buf = Vec(3, gen.cloneType)
+
+  val s_000 = "b010".U(4.W)
+  val s_100 = "b110".U(4.W)
+  val s_101 = "b111".U(4.W)
+  val s_001 = "b011".U(4.W)
+  val s_111 = "b101".U(4.W)
+
+  val state = RegInit(s_000)
+
+  s_enq.ready := state(1)
+  s_deq.valid := state(0)
+  s_deq.data := buf(2)
+
+  when( s_enq.valid && state(1) ) {
+    buf(0) := s_enq.data
+  }
+
+  switch(state) {
+    is(s_000) {
+      when( s_enq.valid ) {
+        state := s_100
+      }
+    }
+    is(s_100) {
+      buf(2) := buf(0)
+      when( s_enq.valid ) {
+        state := s_101
+      }.otherwise {
+        state := s_001
+      }
+    }
+    is(s_001) {
+      when( s_enq.valid && s_deq.ready ) {
+        state := s_100
+      }.elsewhen(s_enq.valid ) {
+        state := s_101
+      }.elsewhen(s_deq.ready ) {
+        state := s_100
+      }
+    }
+    is(s_101) {
+      when( s_enq.valid && s_deq.ready ) {
+        buf(2) := buf(0)
+      }.elsewhen(s_enq.valid ) {
+        state := s_111
+        buf(1) := buf(0)
+      }.elsewhen(s_deq.ready ) {
+        state := s_001
+        buf(2) := buf(0)
+      }
+    }
+    is(s_111) {
+      when( s_deq.ready ) {
+        state := s_101
+        buf(2) := buf(1)
       }
     }
   }
