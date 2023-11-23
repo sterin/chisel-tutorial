@@ -10,8 +10,6 @@ import chiseltest._
 import chiseltest.simulator.VerilatorFlags
 import chiseltest.ChiselScalatestTester
 
-import firrtl.transforms.NoDCEAnnotation
-
 import stream._
 import axi._
 
@@ -38,8 +36,7 @@ abstract class BaseSpec extends AnyFreeSpec with ChiselScalatestTester {
     var annotations = Seq(
         VerilatorBackendAnnotation,
         VerilatorFlags(Seq("--assert")),
-        WriteFstAnnotation,
-        NoDCEAnnotation
+        WriteFstAnnotation
     )
     test(dutGen).withAnnotations(annotations)(init(testFn))
   }

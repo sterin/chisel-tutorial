@@ -102,6 +102,8 @@ object Stream {
   implicit class AddMethodsToStream[T <: Data](strm: Stream[T]) {
 
     def fire() = strm.valid && strm.ready
+    def stall() = strm.valid && !strm.ready
+    def waiting() = !strm.valid && strm.ready
 
     def on_fire(block: T => Unit) = {
       when( strm.valid && strm.ready ) {
@@ -345,17 +347,16 @@ class StreamSkidBuf[T<:Data](gen: T) extends Stage(gen, gen) {
   }
 }
 
-// http://fpgacpu.ca/fpga/Pipeline_Skid_Buffer.html
-// https://zipcpu.com/blog/2019/05/22/skidbuffer.html
+// skid buffer where both inputs and outputs are directly connected to registers without any logic
 class StreamSkid3Buf[T<:Data](gen: T) extends Stage(gen, gen) {
   
-  val buf = Vec(3, gen.cloneType)
+  val buf = Reg(Vec(3, gen.cloneType))
 
-  val s_000 = "b010".U(4.W)
-  val s_100 = "b110".U(4.W)
-  val s_101 = "b111".U(4.W)
-  val s_001 = "b011".U(4.W)
-  val s_111 = "b101".U(4.W)
+  val s_000 = "b010".U(3.W)
+  val s_100 = "b110".U(3.W)
+  val s_101 = "b111".U(3.W)
+  val s_001 = "b011".U(3.W)
+  val s_111 = "b101".U(3.W)
 
   val state = RegInit(s_000)
 
@@ -387,7 +388,7 @@ class StreamSkid3Buf[T<:Data](gen: T) extends Stage(gen, gen) {
       }.elsewhen(s_enq.valid ) {
         state := s_101
       }.elsewhen(s_deq.ready ) {
-        state := s_100
+        state := s_000
       }
     }
     is(s_101) {

@@ -1,7 +1,7 @@
 import time
 from components import *
 
-overlay = pynq.Overlay('memset_3.bit')
+overlay = pynq.Overlay('memset_1.bit')
 memset = overlay.Memset
 
 print("LOADED. Waiting ... ")
