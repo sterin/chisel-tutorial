@@ -457,9 +457,12 @@ class StreamIterator[T <: Data, R <: Data](gen: T)(cond: T => Bool)(advance: T =
 class StreamFIFO[T <: Data](val addr_width: Int, gen: T) extends Stage(gen, gen) {
 
   val ram = SyncReadMem(1 << addr_width, UInt(gen.getWidth.W))
-  
+
   val head = RegInit(0.U((addr_width+1).W))
   val tail = RegInit(0.U((addr_width+1).W))
+
+  dontTouch(head)
+
 
   val empty = head === tail
   val full = head === Cat(~tail(addr_width), tail(addr_width-1, 0))
